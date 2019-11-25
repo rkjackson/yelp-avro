@@ -5,9 +5,9 @@
 # to you under the Apache License, Version 2.0 (the
 # "License"); you may not use this file except in compliance
 # with the License.  You may obtain a copy of the License at
-# 
+#
 # http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,21 +34,20 @@ uses the following mapping:
   * Schema longs are implemented as long.
   * Schema floats are implemented as float.
   * Schema doubles are implemented as float.
-  * Schema booleans are implemented as bool. 
+  * Schema booleans are implemented as bool.
 """
 import struct
 import sys
 import datetime
 import six
-from six import int2byte as chr
 from binascii import crc32
 from decimal import Decimal
 from decimal import getcontext
 
 try:
-	import json
+  import json
 except ImportError:
-	import simplejson as json
+  import simplejson as json
 import six
 
 from avro import schema
@@ -71,20 +70,25 @@ else:
   class SimpleStruct(object):
     def __init__(self, format):
       self.format = format
+
     def pack(self, *args):
       return struct.pack(self.format, *args)
+
     def unpack(self, *args):
       return struct.unpack(self.format, *args)
+
+
   struct_class = SimpleStruct
 
-STRUCT_INT = struct_class('!I')             # big-endian unsigned int
-STRUCT_LONG = struct_class('!Q')            # big-endian unsigned long long
-STRUCT_FLOAT = struct_class('!f')           # big-endian float
-STRUCT_DOUBLE = struct_class('!d')          # big-endian double
-STRUCT_CRC32 = struct_class('>I')           # big-endian unsigned int
-STRUCT_SIGNED_SHORT = struct_class('>h')    # big-endian signed short
-STRUCT_SIGNED_INT = struct_class('>i')      # big-endian signed int
-STRUCT_SIGNED_LONG = struct_class('>q')     # big-endian signed long
+STRUCT_INT = struct_class('!I')  # big-endian unsigned int
+STRUCT_LONG = struct_class('!Q')  # big-endian unsigned long long
+STRUCT_FLOAT = struct_class('!f')  # big-endian float
+STRUCT_DOUBLE = struct_class('!d')  # big-endian double
+STRUCT_CRC32 = struct_class('>I')  # big-endian unsigned int
+STRUCT_SIGNED_SHORT = struct_class('>h')  # big-endian signed short
+STRUCT_SIGNED_INT = struct_class('>i')  # big-endian signed int
+STRUCT_SIGNED_LONG = struct_class('>q')  # big-endian signed long
+
 
 #
 # Exceptions
@@ -92,13 +96,16 @@ STRUCT_SIGNED_LONG = struct_class('>q')     # big-endian signed long
 
 class AvroTypeException(schema.AvroException):
   """Raised when datum is not an example of schema."""
+
   def __init__(self, expected_schema, datum, extra_msg=None):
-    pretty_expected = json.dumps(json.loads(str(expected_schema)), indent=2)
-    fail_msg = "The datum %s is not an example of the schema %s"\
-               % (datum, pretty_expected)
+    pretty_expected = json.dumps(json.loads(str(expected_schema)),
+                   indent=2)
+    fail_msg = "The datum %s is not an example of the schema %s" \
+           % (datum, pretty_expected)
     if extra_msg:
       fail_msg += '\n\nThe following fields failed to validate:\n' + extra_msg
     schema.AvroException.__init__(self, fail_msg)
+
 
 class SchemaResolutionException(schema.AvroException):
   def __init__(self, fail_msg, writers_schema=None, readers_schema=None):
@@ -108,22 +115,25 @@ class SchemaResolutionException(schema.AvroException):
     if readers_schema: fail_msg += "\nReader's Schema: %s" % pretty_readers
     schema.AvroException.__init__(self, fail_msg)
 
+
 class ValidationResult(object):
-    def __new__(cls, err=None):
-        if err:
-            return super(ValidationResult, cls).__new__(cls)
-        return True
+  def __new__(cls, err=None):
+    if err:
+      return super(ValidationResult, cls).__new__(cls)
+    return True
 
-    def __init__(self, err):
-        self.err = err
+  def __init__(self, err):
+    self.err = err
 
-    def __bool__(self):
-        return False
-    __nonzero__ = __bool__
+  def __bool__(self):
+    return False
 
-    @property
-    def msg(self):
-        return self.err
+  __nonzero__ = __bool__
+
+  @property
+  def msg(self):
+    return self.err
+
 
 #
 # Validate
@@ -132,45 +142,53 @@ class ValidationResult(object):
 def _is_timezone_aware_datetime(dt):
   return dt.tzinfo is not None and dt.tzinfo.utcoffset(dt) is not None
 
+
 def validate(expected_schema, datum):
   """Determine if a python datum is an instance of a schema."""
   BASE_ERR = 'Expected "{0}" found {1}'
   schema_type = expected_schema.type
   if schema_type == 'null':
     return ValidationResult(
-      None if datum is None else BASE_ERR.format(schema_type, type(datum))
+      None if datum is None else BASE_ERR.format(schema_type,
+                             type(datum))
     )
   elif schema_type == 'boolean':
     return ValidationResult(
-      None if isinstance(datum, bool) else BASE_ERR.format(schema_type, type(datum))
+      None if isinstance(datum, bool) else BASE_ERR.format(schema_type,
+                                 type(datum))
     )
   elif schema_type == 'string':
     return ValidationResult(
-      None if isinstance(datum, six.string_types) else BASE_ERR.format(schema_type, type(datum))
+      None if isinstance(datum, six.string_types) else BASE_ERR.format(
+        schema_type, type(datum))
     )
   elif schema_type == 'bytes':
     if (hasattr(expected_schema, 'logical_type') and
-      expected_schema.logical_type == constants.DECIMAL):
+        expected_schema.logical_type == constants.DECIMAL):
       return ValidationResult(
         None if isinstance(datum, Decimal)
         else BASE_ERR.format(expected_schema.logical_type, type(datum))
       )
     return ValidationResult(
-      None if isinstance(datum, bytes) else BASE_ERR.format(schema_type, type(datum))
+      None if isinstance(datum, bytes) else BASE_ERR.format(schema_type,
+                                  type(datum))
     )
   elif schema_type == 'int':
     if hasattr(expected_schema, 'logical_type'):
       if expected_schema.logical_type == constants.DATE:
         return ValidationResult(
           None if isinstance(datum, datetime.date)
-          else BASE_ERR.format(expected_schema.logical_type, type(datum))
+          else BASE_ERR.format(expected_schema.logical_type,
+                     type(datum))
         )
       elif expected_schema.logical_type == constants.TIME_MILLIS:
         return ValidationResult(
           None if isinstance(datum, datetime.time)
-          else BASE_ERR.format(expected_schema.logical_type, type(datum))
+          else BASE_ERR.format(expected_schema.logical_type,
+                     type(datum))
         )
-    _valid = isinstance(datum, six.integer_types) and INT_MIN_VALUE <= datum <= INT_MAX_VALUE
+    _valid = isinstance(datum,
+              six.integer_types) and INT_MIN_VALUE <= datum <= INT_MAX_VALUE
     return ValidationResult(
       None if _valid else BASE_ERR.format(schema_type, type(datum))
     )
@@ -179,14 +197,20 @@ def validate(expected_schema, datum):
       if expected_schema.logical_type == constants.TIME_MICROS:
         return ValidationResult(
           None if isinstance(datum, datetime.time)
-          else BASE_ERR.format(expected_schema.logical_type, type(datum))
+          else BASE_ERR.format(expected_schema.logical_type,
+                     type(datum))
         )
-      elif expected_schema.logical_type in [constants.TIMESTAMP_MILLIS, constants.TIMESTAMP_MICROS]:
-        _valid = isinstance(datum, datetime.datetime) and _is_timezone_aware_datetime(datum)
+      elif expected_schema.logical_type in [constants.TIMESTAMP_MILLIS,
+                          constants.TIMESTAMP_MICROS]:
+        _valid = isinstance(datum,
+                  datetime.datetime) and _is_timezone_aware_datetime(
+          datum)
         return ValidationResult(
-          None if _valid else BASE_ERR.format(expected_schema.logical_type, type(datum))
+          None if _valid else BASE_ERR.format(
+            expected_schema.logical_type, type(datum))
         )
-    _valid = isinstance(datum, six.integer_types) and LONG_MIN_VALUE <= datum <= LONG_MAX_VALUE
+    _valid = isinstance(datum,
+              six.integer_types) and LONG_MIN_VALUE <= datum <= LONG_MAX_VALUE
     return ValidationResult(
       None if _valid else BASE_ERR.format(schema_type, type(datum))
     )
@@ -216,7 +240,8 @@ def validate(expected_schema, datum):
   elif schema_type == 'enum':
     return ValidationResult(
       None if datum in expected_schema.symbols
-      else '"{0}" is not among expected symbols {1}'.format(datum, expected_schema.symbols)
+      else '"{0}" is not among expected symbols {1}'.format(datum,
+                                  expected_schema.symbols)
     )
   elif schema_type == 'array':
     if not isinstance(datum, list):
@@ -235,7 +260,9 @@ def validate(expected_schema, datum):
   elif schema_type in ['union', 'error_union']:
     if any([validate(s, datum) for s in expected_schema.schemas]):
       return ValidationResult()
-    return ValidationResult('"{0}" is not an example of any {1} schema'.format(schema_type, datum))
+    return ValidationResult(
+      '"{0}" is not an example of any {1} schema'.format(schema_type,
+                                 datum))
   elif schema_type in ['record', 'error', 'request']:
     if not isinstance(datum, dict):
       return ValidationResult(BASE_ERR.format(schema_type, type(datum)))
@@ -249,16 +276,18 @@ def validate(expected_schema, datum):
         )
     return ValidationResult("\n".join(err_info))
 
+
 #
 # Decoder/Encoder
 #
 
 class BinaryDecoder(object):
   """Read leaf values."""
+
   def __init__(self, reader):
     """
-    reader is a Python object on which we can call read, seek, and tell.
-    """
+  reader is a Python object on which we can call read, seek, and tell.
+  """
     self._reader = reader
 
   # read-only properties
@@ -266,33 +295,33 @@ class BinaryDecoder(object):
 
   def read(self, n):
     """
-    Read n bytes.
-    """
+  Read n bytes.
+  """
     return self.reader.read(n)
 
   def read_null(self):
     """
-    null is written as zero bytes
-    """
+  null is written as zero bytes
+  """
     return None
 
   def read_boolean(self):
     """
-    a boolean is written as a single byte 
-    whose value is either 0 (false) or 1 (true).
-    """
+  a boolean is written as a single byte
+  whose value is either 0 (false) or 1 (true).
+  """
     return ord(self.read(1)) == 1
 
   def read_int(self):
     """
-    int and long values are written using variable-length, zig-zag coding.
-    """
+  int and long values are written using variable-length, zig-zag coding.
+  """
     return self.read_long()
 
   def read_long(self):
     """
-    int and long values are written using variable-length, zig-zag coding.
-    """
+  int and long values are written using variable-length, zig-zag coding.
+  """
     b = ord(self.read(1))
     n = b & 0x7F
     shift = 7
@@ -305,60 +334,60 @@ class BinaryDecoder(object):
 
   def read_float(self):
     """
-    A float is written as 4 bytes.
-    The float is converted into a 32-bit integer using a method equivalent to
-    Java's floatToIntBits and then encoded in little-endian format.
-    """
+  A float is written as 4 bytes.
+  The float is converted into a 32-bit integer using a method equivalent to
+  Java's floatToIntBits and then encoded in little-endian format.
+  """
     bits = (((ord(self.read(1)) & 0xff)) |
-      ((ord(self.read(1)) & 0xff) <<  8) |
-      ((ord(self.read(1)) & 0xff) << 16) |
-      ((ord(self.read(1)) & 0xff) << 24))
+        ((ord(self.read(1)) & 0xff) << 8) |
+        ((ord(self.read(1)) & 0xff) << 16) |
+        ((ord(self.read(1)) & 0xff) << 24))
     return STRUCT_FLOAT.unpack(STRUCT_INT.pack(bits))[0]
 
   def read_double(self):
     """
-    A double is written as 8 bytes.
-    The double is converted into a 64-bit integer using a method equivalent to
-    Java's doubleToLongBits and then encoded in little-endian format.
-    """
+  A double is written as 8 bytes.
+  The double is converted into a 64-bit integer using a method equivalent to
+  Java's doubleToLongBits and then encoded in little-endian format.
+  """
     bits = (((ord(self.read(1)) & 0xff)) |
-      ((ord(self.read(1)) & 0xff) <<  8) |
-      ((ord(self.read(1)) & 0xff) << 16) |
-      ((ord(self.read(1)) & 0xff) << 24) |
-      ((ord(self.read(1)) & 0xff) << 32) |
-      ((ord(self.read(1)) & 0xff) << 40) |
-      ((ord(self.read(1)) & 0xff) << 48) |
-      ((ord(self.read(1)) & 0xff) << 56))
+        ((ord(self.read(1)) & 0xff) << 8) |
+        ((ord(self.read(1)) & 0xff) << 16) |
+        ((ord(self.read(1)) & 0xff) << 24) |
+        ((ord(self.read(1)) & 0xff) << 32) |
+        ((ord(self.read(1)) & 0xff) << 40) |
+        ((ord(self.read(1)) & 0xff) << 48) |
+        ((ord(self.read(1)) & 0xff) << 56))
     return STRUCT_DOUBLE.unpack(STRUCT_LONG.pack(bits))[0]
 
   def read_decimal_from_bytes(self, precision, scale):
     """
-    Decimal bytes are decoded as signed short, int or long depending on the
-    size of bytes.
-    """
+  Decimal bytes are decoded as signed short, int or long depending on the
+  size of bytes.
+  """
     size = self.read_long()
     return self.read_decimal_from_fixed(precision, scale, size)
 
   def read_decimal_from_fixed(self, precision, scale, size):
     """
-    Decimal is encoded as fixed. Fixed instances are encoded using the
-    number of bytes declared in the schema.
-    """
+  Decimal is encoded as fixed. Fixed instances are encoded using the
+  number of bytes declared in the schema.
+  """
     datum = self.read(size)
     unscaled_datum = 0
     msb = struct.unpack('!b', datum[:1])[0]
     leftmost_bit = (msb >> 7) & 1
     if leftmost_bit == 1:
       modified_first_byte = ord(datum[:1]) ^ (1 << 7)
-      datum = chr(modified_first_byte) + datum[1:]
+      datum = unichr(modified_first_byte) + datum[1:]
       for offset in range(size):
         unscaled_datum <<= 8
-        unscaled_datum += ord(datum[offset:offset+1])
-      unscaled_datum += pow(-2, (size*8) - 1)
+        unscaled_datum += ord(datum[offset:offset + 1])
+      unscaled_datum += pow(-2, (size * 8) - 1)
     else:
       for offset in range(size):
         unscaled_datum <<= 8
-        unscaled_datum += ord(datum[offset:offset+1])
+        unscaled_datum += ord(datum[offset:offset + 1])
 
     original_prec = getcontext().prec
     getcontext().prec = precision
@@ -368,29 +397,29 @@ class BinaryDecoder(object):
 
   def read_bytes(self):
     """
-    Bytes are encoded as a long followed by that many bytes of data. 
-    """
+  Bytes are encoded as a long followed by that many bytes of data.
+  """
     return self.read(self.read_long())
 
   def read_utf8(self):
     """
-    A string is encoded as a long followed by
-    that many bytes of UTF-8 encoded character data.
-    """
-    return self.read_bytes().decode("utf-8")
+  A string is encoded as a long followed by
+  that many bytes of UTF-8 encoded character data.
+  """
+    return self.read_bytes()
 
   def read_date_from_int(self):
     """
-    int is decoded as python date object.
-    int stores the number of days from
-    the unix epoch, 1 January 1970 (ISO calendar).
-    """
+  int is decoded as python date object.
+  int stores the number of days from
+  the unix epoch, 1 January 1970 (ISO calendar).
+  """
     days_since_epoch = self.read_int()
     return datetime.date(1970, 1, 1) + datetime.timedelta(days_since_epoch)
 
   def _build_time_object(self, value, scale_to_micro):
     value = value * scale_to_micro
-    value, microseconds =  value // 1000000, value % 1000000
+    value, microseconds = value // 1000000, value % 1000000
     value, seconds = value // 60, value % 60
     value, minutes = value // 60, value % 60
     hours = value
@@ -404,38 +433,40 @@ class BinaryDecoder(object):
 
   def read_time_millis_from_int(self):
     """
-    int is decoded as python time object which represents 
-    the number of milliseconds after midnight, 00:00:00.000.
-    """
+  int is decoded as python time object which represents
+  the number of milliseconds after midnight, 00:00:00.000.
+  """
     milliseconds = self.read_int()
     return self._build_time_object(milliseconds, 1000)
 
   def read_time_micros_from_long(self):
     """
-    long is decoded as python time object which represents 
-    the number of microseconds after midnight, 00:00:00.000000.
-    """
+  long is decoded as python time object which represents
+  the number of microseconds after midnight, 00:00:00.000000.
+  """
     microseconds = self.read_long()
     return self._build_time_object(microseconds, 1)
 
   def read_timestamp_millis_from_long(self):
     """
-    long is decoded as python datetime object which represents 
-    the number of milliseconds from the unix epoch, 1 January 1970.
-    """
+  long is decoded as python datetime object which represents
+  the number of milliseconds from the unix epoch, 1 January 1970.
+  """
     timestamp_millis = self.read_long()
     timedelta = datetime.timedelta(microseconds=timestamp_millis * 1000)
-    unix_epoch_datetime = datetime.datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezones.utc) 
+    unix_epoch_datetime = datetime.datetime(1970, 1, 1, 0, 0, 0, 0,
+                        tzinfo=timezones.utc)
     return unix_epoch_datetime + timedelta
 
   def read_timestamp_micros_from_long(self):
     """
-    long is decoded as python datetime object which represents 
-    the number of microseconds from the unix epoch, 1 January 1970.
-    """
+  long is decoded as python datetime object which represents
+  the number of microseconds from the unix epoch, 1 January 1970.
+  """
     timestamp_micros = self.read_long()
     timedelta = datetime.timedelta(microseconds=timestamp_micros)
-    unix_epoch_datetime = datetime.datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezones.utc)
+    unix_epoch_datetime = datetime.datetime(1970, 1, 1, 0, 0, 0, 0,
+                        tzinfo=timezones.utc)
     return unix_epoch_datetime + timedelta
 
   def check_crc32(self, bytes):
@@ -472,12 +503,14 @@ class BinaryDecoder(object):
   def skip(self, n):
     self.reader.seek(self.reader.tell() + n)
 
+
 class BinaryEncoder(object):
   """Write leaf values."""
+
   def __init__(self, writer):
     """
-    writer is a Python object on which we can call write.
-    """
+  writer is a Python object on which we can call write.
+  """
     self._writer = writer
 
   # read-only properties
@@ -489,72 +522,75 @@ class BinaryEncoder(object):
 
   def write_null(self, datum):
     """
-    null is written as zero bytes
-    """
+  null is written as zero bytes
+  """
     pass
-  
+
   def write_boolean(self, datum):
     """
-    a boolean is written as a single byte 
-    whose value is either 0 (false) or 1 (true).
-    """
+  a boolean is written as a single byte
+  whose value is either 0 (false) or 1 (true).
+  """
     if datum:
-      self.write(chr(1))
+      self.write(unichr(1))
     else:
-      self.write(chr(0))
+      self.write(unichr(0))
 
   def write_int(self, datum):
     """
-    int and long values are written using variable-length, zig-zag coding.    
-    """
+  int and long values are written using variable-length, zig-zag coding.
+  """
     self.write_long(datum);
 
   def write_long(self, datum):
     """
-    int and long values are written using variable-length, zig-zag coding.
-    """
+  int and long values are written using variable-length, zig-zag coding.
+  """
     datum = (datum << 1) ^ (datum >> 63)
     while (datum & ~0x7F) != 0:
-      self.write(chr((datum & 0x7f) | 0x80))
+      print 'writing ', (datum & 0x7f) | 0x80, '|', unichr((datum & 0x7f) | 0x80)
+      self.write(unichr((datum & 0x7f) | 0x80))
       datum >>= 7
-    self.write(chr(datum))
+    print 'finishing with ', datum, '|', unichr(datum)
+    self.write(unichr(datum))
 
   def write_float(self, datum):
     """
-    A float is written as 4 bytes.
-    The float is converted into a 32-bit integer using a method equivalent to
-    Java's floatToIntBits and then encoded in little-endian format.
-    """
+  A float is written as 4 bytes.
+  The float is converted into a 32-bit integer using a method equivalent to
+  Java's floatToIntBits and then encoded in little-endian format.
+  """
     bits = STRUCT_INT.unpack(STRUCT_FLOAT.pack(datum))[0]
-    self.write(chr((bits) & 0xFF))
-    self.write(chr((bits >> 8) & 0xFF))
-    self.write(chr((bits >> 16) & 0xFF))
-    self.write(chr((bits >> 24) & 0xFF))
+    self.write(unichr((bits) & 0xFF))
+    self.write(unichr((bits >> 8) & 0xFF))
+    self.write(unichr((bits >> 16) & 0xFF))
+    self.write(unichr((bits >> 24) & 0xFF))
 
   def write_double(self, datum):
     """
-    A double is written as 8 bytes.
-    The double is converted into a 64-bit integer using a method equivalent to
-    Java's doubleToLongBits and then encoded in little-endian format.
-    """
+  A double is written as 8 bytes.
+  The double is converted into a 64-bit integer using a method equivalent to
+  Java's doubleToLongBits and then encoded in little-endian format.
+  """
     bits = STRUCT_LONG.unpack(STRUCT_DOUBLE.pack(datum))[0]
-    self.write(chr((bits) & 0xFF))
-    self.write(chr((bits >> 8) & 0xFF))
-    self.write(chr((bits >> 16) & 0xFF))
-    self.write(chr((bits >> 24) & 0xFF))
-    self.write(chr((bits >> 32) & 0xFF))
-    self.write(chr((bits >> 40) & 0xFF))
-    self.write(chr((bits >> 48) & 0xFF))
-    self.write(chr((bits >> 56) & 0xFF))
+    self.write(unichr((bits) & 0xFF))
+    self.write(unichr((bits >> 8) & 0xFF))
+    self.write(unichr((bits >> 16) & 0xFF))
+    self.write(unichr((bits >> 24) & 0xFF))
+    self.write(unichr((bits >> 32) & 0xFF))
+    self.write(unichr((bits >> 40) & 0xFF))
+    self.write(unichr((bits >> 48) & 0xFF))
+    self.write(unichr((bits >> 56) & 0xFF))
 
   def write_decimal_bytes(self, datum, scale):
     """
-    Decimal in bytes are encoded as long. Since size of packed value in bytes for
-    signed long is 8, 8 bytes are written.
-    """
+  Decimal in bytes are encoded as long. Since size of packed value in bytes for
+  signed long is 8, 8 bytes are written.
+  """
     sign, digits, exp = datum.as_tuple()
     if exp > scale:
-      raise AvroTypeException('Scale provided in schema does not match the decimal')
+      raise AvroTypeException(
+        'Scale provided in schema does not match the decimal')
 
     unscaled_datum = 0
     for digit in digits:
@@ -570,17 +606,18 @@ class BinaryEncoder(object):
 
     bytes_req += 1 if (bytes_req << 3) < bits_req else 0
     self.write_long(bytes_req)
-    for index in range(bytes_req-1, -1, -1):
+    for index in range(bytes_req - 1, -1, -1):
       bits_to_write = packed_bits >> (8 * index)
-      self.write(chr(bits_to_write & 0xff))
+      self.write(unichr(bits_to_write & 0xff))
 
   def write_decimal_fixed(self, datum, scale, size):
     """
-    Decimal in fixed are encoded as size of fixed bytes.
-    """
+  Decimal in fixed are encoded as size of fixed bytes.
+  """
     sign, digits, exp = datum.as_tuple()
     if exp > scale:
-      raise AvroTypeException('Scale provided in schema does not match the decimal')
+      raise AvroTypeException(
+        'Scale provided in schema does not match the decimal')
 
     unscaled_datum = 0
     for digit in digits:
@@ -605,85 +642,90 @@ class BinaryEncoder(object):
     if sign:
       unscaled_datum = (1 << bits_req) - unscaled_datum
       unscaled_datum = mask | unscaled_datum
-      for index in range(size-1, -1, -1):
+      for index in range(size - 1, -1, -1):
         bits_to_write = unscaled_datum >> (8 * index)
-        self.write(chr(bits_to_write & 0xff))
+        self.write(unichr(bits_to_write & 0xff))
     else:
-      for i in range(int(offset_bits/8)):
-        self.write(chr(0))
-      for index in range(bytes_req-1, -1, -1):
+      for i in range(int(offset_bits / 8)):
+        self.write(unichr(0))
+      for index in range(bytes_req - 1, -1, -1):
         bits_to_write = unscaled_datum >> (8 * index)
-        self.write(chr(bits_to_write & 0xff))
+        self.write(unichr(bits_to_write & 0xff))
 
   def write_bytes(self, datum):
     """
-    Bytes are encoded as a long followed by that many bytes of data. 
-    """
-    self.write_long(len(datum))
-    self.write(struct.pack(b'%ds' % len(datum), datum))
+  Bytes are encoded as a long followed by that many bytes of data.
+  """
+    b = struct.pack(b'%ds' % len(datum), datum).decode('utf-8')
+    self.write_long(len(b))
+    self.write(b)
 
   def write_utf8(self, datum):
     """
-    A string is encoded as a long followed by
-    that many bytes of UTF-8 encoded character data.
-    """
+  A string is encoded as a long followed by
+  that many bytes of UTF-8 encoded character data.
+  """
     datum = datum.encode("utf-8")
     self.write_bytes(datum)
 
   def write_crc32(self, bytes):
     """
-    A 4-byte, big-endian CRC32 checksum
-    """
+  A 4-byte, big-endian CRC32 checksum
+  """
     self.write(STRUCT_CRC32.pack(crc32(bytes) & 0xffffffff));
 
   def write_date_int(self, datum):
     """
-    Encode python date object as int.
-    It stores the number of days from
-    the unix epoch, 1 January 1970 (ISO calendar).
-    """
+  Encode python date object as int.
+  It stores the number of days from
+  the unix epoch, 1 January 1970 (ISO calendar).
+  """
     delta_date = datum - datetime.date(1970, 1, 1)
     self.write_int(delta_date.days)
 
   def write_time_millis_int(self, datum):
     """
-    Encode python time object as int.
-    It stores the number of milliseconds from midnight, 00:00:00.000
-    """
-    milliseconds = datum.hour*3600000 + datum.minute * 60000 + datum.second * 1000 + datum.microsecond // 1000
+  Encode python time object as int.
+  It stores the number of milliseconds from midnight, 00:00:00.000
+  """
+    milliseconds = datum.hour * 3600000 + datum.minute * 60000 + datum.second * 1000 + datum.microsecond // 1000
     self.write_int(milliseconds)
 
   def write_time_micros_long(self, datum):
     """
-    Encode python time object as long.
-    It stores the number of microseconds from midnight, 00:00:00.000000
-    """
-    microseconds = datum.hour*3600000000 + datum.minute * 60000000 + datum.second * 1000000 + datum.microsecond
+  Encode python time object as long.
+  It stores the number of microseconds from midnight, 00:00:00.000000
+  """
+    microseconds = datum.hour * 3600000000 + datum.minute * 60000000 + datum.second * 1000000 + datum.microsecond
     self.write_long(microseconds)
 
   def _timedelta_total_microseconds(self, timedelta):
     return (
-        timedelta.microseconds + (timedelta.seconds + timedelta.days * 24 * 3600) * 10 ** 6)
+        timedelta.microseconds + (
+          timedelta.seconds + timedelta.days * 24 * 3600) * 10 ** 6)
 
   def write_timestamp_millis_long(self, datum):
     """
-    Encode python datetime object as long.
-    It stores the number of milliseconds from midnight of unix epoch, 1 January 1970.
-    """
+  Encode python datetime object as long.
+  It stores the number of milliseconds from midnight of unix epoch, 1 January 1970.
+  """
     datum = datum.astimezone(tz=timezones.utc)
-    timedelta = datum - datetime.datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezones.utc)
+    timedelta = datum - datetime.datetime(1970, 1, 1, 0, 0, 0, 0,
+                        tzinfo=timezones.utc)
     milliseconds = self._timedelta_total_microseconds(timedelta) / 1000
     self.write_long(int(milliseconds))
 
   def write_timestamp_micros_long(self, datum):
     """
-    Encode python datetime object as long.
-    It stores the number of microseconds from midnight of unix epoch, 1 January 1970.
-    """
+  Encode python datetime object as long.
+  It stores the number of microseconds from midnight of unix epoch, 1 January 1970.
+  """
     datum = datum.astimezone(tz=timezones.utc)
-    timedelta = datum - datetime.datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezones.utc)
+    timedelta = datum - datetime.datetime(1970, 1, 1, 0, 0, 0, 0,
+                        tzinfo=timezones.utc)
     microseconds = self._timedelta_total_microseconds(timedelta)
     self.write_long(int(microseconds))
+
 
 #
 # DatumReader/Writer
@@ -691,6 +733,7 @@ class BinaryEncoder(object):
 
 class DatumReader(object):
   """Deserialize Avro-encoded data into a Python data structure."""
+
   @staticmethod
   def check_props(schema_one, schema_two, prop_list):
     for prop in prop_list:
@@ -704,36 +747,37 @@ class DatumReader(object):
     r_type = readers_schema.type
     if 'union' in [w_type, r_type] or 'error_union' in [w_type, r_type]:
       return True
-    elif (w_type in schema.PRIMITIVE_TYPES and r_type in schema.PRIMITIVE_TYPES
-          and w_type == r_type):
+    elif (
+        w_type in schema.PRIMITIVE_TYPES and r_type in schema.PRIMITIVE_TYPES
+        and w_type == r_type):
       return True
     elif (w_type == r_type == 'record' and
-          DatumReader.check_props(writers_schema, readers_schema, 
-                                  ['fullname'])):
+        DatumReader.check_props(writers_schema, readers_schema,
+                    ['fullname'])):
       return True
     elif (w_type == r_type == 'error' and
-          DatumReader.check_props(writers_schema, readers_schema, 
-                                  ['fullname'])):
+        DatumReader.check_props(writers_schema, readers_schema,
+                    ['fullname'])):
       return True
     elif (w_type == r_type == 'request'):
       return True
-    elif (w_type == r_type == 'fixed' and 
-          DatumReader.check_props(writers_schema, readers_schema, 
-                                  ['fullname', 'size'])):
+    elif (w_type == r_type == 'fixed' and
+        DatumReader.check_props(writers_schema, readers_schema,
+                    ['fullname', 'size'])):
       return True
-    elif (w_type == r_type == 'enum' and 
-          DatumReader.check_props(writers_schema, readers_schema, 
-                                  ['fullname'])):
+    elif (w_type == r_type == 'enum' and
+        DatumReader.check_props(writers_schema, readers_schema,
+                    ['fullname'])):
       return True
-    elif (w_type == r_type == 'map' and 
-          DatumReader.check_props(writers_schema.values,
-                                  readers_schema.values, ['type'])):
+    elif (w_type == r_type == 'map' and
+        DatumReader.check_props(writers_schema.values,
+                    readers_schema.values, ['type'])):
       return True
-    elif (w_type == r_type == 'array' and 
-          DatumReader.check_props(writers_schema.items,
-                                  readers_schema.items, ['type'])):
+    elif (w_type == r_type == 'array' and
+        DatumReader.check_props(writers_schema.items,
+                    readers_schema.items, ['type'])):
       return True
-    
+
     # Handle schema promotion
     if w_type == 'int' and r_type in ['long', 'float', 'double']:
       return True
@@ -745,33 +789,39 @@ class DatumReader(object):
 
   def __init__(self, writers_schema=None, readers_schema=None):
     """
-    As defined in the Avro specification, we call the schema encoded
-    in the data the "writer's schema", and the schema expected by the
-    reader the "reader's schema".
-    """
+  As defined in the Avro specification, we call the schema encoded
+  in the data the "writer's schema", and the schema expected by the
+  reader the "reader's schema".
+  """
     self._writers_schema = writers_schema
-    self._readers_schema = readers_schema 
+    self._readers_schema = readers_schema
 
-  # read/write properties
+    # read/write properties
+
   def set_writers_schema(self, writers_schema):
     self._writers_schema = writers_schema
+
   writers_schema = property(lambda self: self._writers_schema,
-                            set_writers_schema)
+                set_writers_schema)
+
   def set_readers_schema(self, readers_schema):
     self._readers_schema = readers_schema
+
   readers_schema = property(lambda self: self._readers_schema,
-                            set_readers_schema)
-  
+                set_readers_schema)
+
   def read(self, decoder):
     if self.readers_schema is None:
       self.readers_schema = self.writers_schema
-    return self.read_data(self.writers_schema, self.readers_schema, decoder)
+    return self.read_data(self.writers_schema, self.readers_schema,
+                decoder)
 
   def read_data(self, writers_schema, readers_schema, decoder):
     # schema matching
     if not DatumReader.match_schemas(writers_schema, readers_schema):
       fail_msg = 'Schemas do not match.'
-      raise SchemaResolutionException(fail_msg, writers_schema, readers_schema)
+      raise SchemaResolutionException(fail_msg, writers_schema,
+                      readers_schema)
 
     # schema resolution: reader's schema is a union, writer's schema is not
     if (writers_schema.type not in ['union', 'error_union']
@@ -780,7 +830,8 @@ class DatumReader(object):
         if DatumReader.match_schemas(writers_schema, s):
           return self.read_data(writers_schema, s, decoder)
       fail_msg = 'Schemas do not match.'
-      raise SchemaResolutionException(fail_msg, writers_schema, readers_schema)
+      raise SchemaResolutionException(fail_msg, writers_schema,
+                      readers_schema)
 
     # function dispatch for reading data based on type of writer's schema
     if writers_schema.type == 'null':
@@ -794,19 +845,19 @@ class DatumReader(object):
           writers_schema.logical_type == constants.DATE):
         return decoder.read_date_from_int()
       elif (hasattr(writers_schema, 'logical_type') and
-            writers_schema.logical_type == constants.TIME_MILLIS):
+          writers_schema.logical_type == constants.TIME_MILLIS):
         return decoder.read_time_millis_from_int()
       else:
         return decoder.read_int()
     elif writers_schema.type == 'long':
-      if (hasattr(writers_schema, 'logical_type') and 
+      if (hasattr(writers_schema, 'logical_type') and
           writers_schema.logical_type == constants.TIME_MICROS):
         return decoder.read_time_micros_from_long()
-      elif (hasattr(writers_schema, 'logical_type') and 
-            writers_schema.logical_type == constants.TIMESTAMP_MILLIS):
+      elif (hasattr(writers_schema, 'logical_type') and
+          writers_schema.logical_type == constants.TIMESTAMP_MILLIS):
         return decoder.read_timestamp_millis_from_long()
-      elif (hasattr(writers_schema, 'logical_type') and 
-            writers_schema.logical_type == constants.TIMESTAMP_MICROS):
+      elif (hasattr(writers_schema, 'logical_type') and
+          writers_schema.logical_type == constants.TIMESTAMP_MICROS):
         return decoder.read_timestamp_micros_from_long()
       else:
         return decoder.read_long()
@@ -881,9 +932,9 @@ class DatumReader(object):
 
   def read_fixed(self, writers_schema, readers_schema, decoder):
     """
-    Fixed instances are encoded using the number of bytes declared
-    in the schema.
-    """
+  Fixed instances are encoded using the number of bytes declared
+  in the schema.
+  """
     return decoder.read(writers_schema.size)
 
   def skip_fixed(self, writers_schema, decoder):
@@ -891,21 +942,23 @@ class DatumReader(object):
 
   def read_enum(self, writers_schema, readers_schema, decoder):
     """
-    An enum is encoded by a int, representing the zero-based position
-    of the symbol in the schema.
-    """
+  An enum is encoded by a int, representing the zero-based position
+  of the symbol in the schema.
+  """
     # read data
     index_of_symbol = decoder.read_int()
     if index_of_symbol >= len(writers_schema.symbols):
-      fail_msg = "Can't access enum index %d for enum with %d symbols"\
-                 % (index_of_symbol, len(writers_schema.symbols))
-      raise SchemaResolutionException(fail_msg, writers_schema, readers_schema)
+      fail_msg = "Can't access enum index %d for enum with %d symbols" \
+             % (index_of_symbol, len(writers_schema.symbols))
+      raise SchemaResolutionException(fail_msg, writers_schema,
+                      readers_schema)
     read_symbol = writers_schema.symbols[index_of_symbol]
 
     # schema resolution
     if read_symbol not in readers_schema.symbols:
       fail_msg = "Symbol %s not present in Reader's Schema" % read_symbol
-      raise SchemaResolutionException(fail_msg, writers_schema, readers_schema)
+      raise SchemaResolutionException(fail_msg, writers_schema,
+                      readers_schema)
 
     return read_symbol
 
@@ -914,19 +967,19 @@ class DatumReader(object):
 
   def read_array(self, writers_schema, readers_schema, decoder):
     """
-    Arrays are encoded as a series of blocks.
+  Arrays are encoded as a series of blocks.
 
-    Each block consists of a long count value,
-    followed by that many array items.
-    A block with count zero indicates the end of the array.
-    Each item is encoded per the array's item schema.
+  Each block consists of a long count value,
+  followed by that many array items.
+  A block with count zero indicates the end of the array.
+  Each item is encoded per the array's item schema.
 
-    If a block's count is negative,
-    then the count is followed immediately by a long block size,
-    indicating the number of bytes in the block.
-    The actual count in this case
-    is the absolute value of the count written.
-    """
+  If a block's count is negative,
+  then the count is followed immediately by a long block size,
+  indicating the number of bytes in the block.
+  The actual count in this case
+  is the absolute value of the count written.
+  """
     read_items = []
     block_count = decoder.read_long()
     while block_count != 0:
@@ -935,7 +988,8 @@ class DatumReader(object):
         block_size = decoder.read_long()
       for i in range(block_count):
         read_items.append(self.read_data(writers_schema.items,
-                                         readers_schema.items, decoder))
+                         readers_schema.items,
+                         decoder))
       block_count = decoder.read_long()
     return read_items
 
@@ -952,19 +1006,19 @@ class DatumReader(object):
 
   def read_map(self, writers_schema, readers_schema, decoder):
     """
-    Maps are encoded as a series of blocks.
+  Maps are encoded as a series of blocks.
 
-    Each block consists of a long count value,
-    followed by that many key/value pairs.
-    A block with count zero indicates the end of the map.
-    Each item is encoded per the map's value schema.
+  Each block consists of a long count value,
+  followed by that many key/value pairs.
+  A block with count zero indicates the end of the map.
+  Each item is encoded per the map's value schema.
 
-    If a block's count is negative,
-    then the count is followed immediately by a long block size,
-    indicating the number of bytes in the block.
-    The actual count in this case
-    is the absolute value of the count written.
-    """
+  If a block's count is negative,
+  then the count is followed immediately by a long block size,
+  indicating the number of bytes in the block.
+  The actual count in this case
+  is the absolute value of the count written.
+  """
     read_items = {}
     block_count = decoder.read_long()
     while block_count != 0:
@@ -974,7 +1028,8 @@ class DatumReader(object):
       for i in range(block_count):
         key = decoder.read_utf8()
         read_items[key] = self.read_data(writers_schema.values,
-                                         readers_schema.values, decoder)
+                         readers_schema.values,
+                         decoder)
       block_count = decoder.read_long()
     return read_items
 
@@ -992,56 +1047,58 @@ class DatumReader(object):
 
   def read_union(self, writers_schema, readers_schema, decoder):
     """
-    A union is encoded by first writing a long value indicating
-    the zero-based position within the union of the schema of its value.
-    The value is then encoded per the indicated schema within the union.
-    """
+  A union is encoded by first writing a long value indicating
+  the zero-based position within the union of the schema of its value.
+  The value is then encoded per the indicated schema within the union.
+  """
     # schema resolution
     index_of_schema = int(decoder.read_long())
     if index_of_schema >= len(writers_schema.schemas):
-      fail_msg = "Can't access branch index %d for union with %d branches"\
-                 % (index_of_schema, len(writers_schema.schemas))
-      raise SchemaResolutionException(fail_msg, writers_schema, readers_schema)
+      fail_msg = "Can't access branch index %d for union with %d branches" \
+             % (index_of_schema, len(writers_schema.schemas))
+      raise SchemaResolutionException(fail_msg, writers_schema,
+                      readers_schema)
     selected_writers_schema = writers_schema.schemas[index_of_schema]
-    
+
     # read data
     return self.read_data(selected_writers_schema, readers_schema, decoder)
 
   def skip_union(self, writers_schema, decoder):
     index_of_schema = int(decoder.read_long())
     if index_of_schema >= len(writers_schema.schemas):
-      fail_msg = "Can't access branch index %d for union with %d branches"\
-                 % (index_of_schema, len(writers_schema.schemas))
+      fail_msg = "Can't access branch index %d for union with %d branches" \
+             % (index_of_schema, len(writers_schema.schemas))
       raise SchemaResolutionException(fail_msg, writers_schema)
     return self.skip_data(writers_schema.schemas[index_of_schema], decoder)
 
   def read_record(self, writers_schema, readers_schema, decoder):
     """
-    A record is encoded by encoding the values of its fields
-    in the order that they are declared. In other words, a record
-    is encoded as just the concatenation of the encodings of its fields.
-    Field values are encoded per their schema.
+  A record is encoded by encoding the values of its fields
+  in the order that they are declared. In other words, a record
+  is encoded as just the concatenation of the encodings of its fields.
+  Field values are encoded per their schema.
 
-    Schema Resolution:
-     * the ordering of fields may be different: fields are matched by name.
-     * schemas for fields with the same name in both records are resolved
-       recursively.
-     * if the writer's record contains a field with a name not present in the
-       reader's record, the writer's value for that field is ignored.
-     * if the reader's record schema has a field that contains a default value,
-       and writer's schema does not have a field with the same name, then the
-       reader should use the default value from its field.
-     * if the reader's record schema has a field with no default value, and 
-       writer's schema does not have a field with the same name, then the
-       field's value is unset.
-    """
+  Schema Resolution:
+   * the ordering of fields may be different: fields are matched by name.
+   * schemas for fields with the same name in both records are resolved
+     recursively.
+   * if the writer's record contains a field with a name not present in the
+     reader's record, the writer's value for that field is ignored.
+   * if the reader's record schema has a field that contains a default value,
+     and writer's schema does not have a field with the same name, then the
+     reader should use the default value from its field.
+   * if the reader's record schema has a field with no default value, and
+     writer's schema does not have a field with the same name, then the
+     field's value is unset.
+  """
     # schema resolution
     readers_fields_dict = readers_schema.fields_dict
     read_record = {}
     for field in writers_schema.fields:
       readers_field = readers_fields_dict.get(field.name)
       if readers_field is not None:
-        field_val = self.read_data(field.type, readers_field.type, decoder)
+        field_val = self.read_data(field.type, readers_field.type,
+                       decoder)
         read_record[field.name] = field_val
       else:
         self.skip_data(field.type, decoder)
@@ -1052,12 +1109,14 @@ class DatumReader(object):
       for field_name, field in readers_fields_dict.items():
         if field_name not in writers_fields_dict:
           if field.has_default:
-            field_val = self._read_default_value(field.type, field.default)
+            field_val = self._read_default_value(field.type,
+                               field.default)
             read_record[field.name] = field_val
           else:
             fail_msg = 'No default value for field %s' % field_name
-            raise SchemaResolutionException(fail_msg, writers_schema,
-                                            readers_schema)
+            raise SchemaResolutionException(fail_msg,
+                            writers_schema,
+                            readers_schema)
     return read_record
 
   def skip_record(self, writers_schema, decoder):
@@ -1066,8 +1125,8 @@ class DatumReader(object):
 
   def _read_default_value(self, field_schema, default_value):
     """
-    Basically a JSON Decoder?
-    """
+  Basically a JSON Decoder?
+  """
     if field_schema.type == 'null':
       return None
     elif field_schema.type == 'boolean':
@@ -1086,17 +1145,20 @@ class DatumReader(object):
     elif field_schema.type == 'array':
       read_array = []
       for json_val in default_value:
-        item_val = self._read_default_value(field_schema.items, json_val)
+        item_val = self._read_default_value(field_schema.items,
+                          json_val)
         read_array.append(item_val)
       return read_array
     elif field_schema.type == 'map':
       read_map = {}
       for key, json_val in default_value.items():
-        map_val = self._read_default_value(field_schema.values, json_val)
+        map_val = self._read_default_value(field_schema.values,
+                           json_val)
         read_map[key] = map_val
       return read_map
     elif field_schema.type in ['union', 'error_union']:
-      return self._read_default_value(field_schema.schemas[0], default_value)
+      return self._read_default_value(field_schema.schemas[0],
+                      default_value)
     elif field_schema.type == 'record':
       read_record = {}
       for field in field_schema.fields:
@@ -1109,23 +1171,26 @@ class DatumReader(object):
       fail_msg = 'Unknown type: %s' % field_schema.type
       raise schema.AvroException(fail_msg)
 
+
 class DatumWriter(object):
   """DatumWriter for generic python objects."""
+
   def __init__(self, writers_schema=None):
     self._writers_schema = writers_schema
 
   # read/write properties
   def set_writers_schema(self, writers_schema):
     self._writers_schema = writers_schema
+
   writers_schema = property(lambda self: self._writers_schema,
-                            set_writers_schema)
+                set_writers_schema)
 
   def write(self, datum, encoder):
     # validate datum
     res = validate(self.writers_schema, datum)
     if not res:
       raise AvroTypeException(self.writers_schema, datum, res.msg)
-    
+
     self.write_data(self.writers_schema, datum, encoder)
 
   def write_data(self, writers_schema, datum, encoder):
@@ -1141,7 +1206,7 @@ class DatumWriter(object):
           writers_schema.logical_type == constants.DATE):
         encoder.write_date_int(datum)
       elif (hasattr(writers_schema, 'logical_type') and
-            writers_schema.logical_type == constants.TIME_MILLIS):
+          writers_schema.logical_type == constants.TIME_MILLIS):
         encoder.write_time_millis_int(datum)
       else:
         encoder.write_int(datum)
@@ -1150,10 +1215,10 @@ class DatumWriter(object):
           writers_schema.logical_type == constants.TIME_MICROS):
         encoder.write_time_micros_long(datum)
       elif (hasattr(writers_schema, 'logical_type') and
-            writers_schema.logical_type == constants.TIMESTAMP_MILLIS):
+          writers_schema.logical_type == constants.TIMESTAMP_MILLIS):
         encoder.write_timestamp_millis_long(datum)
       elif (hasattr(writers_schema, 'logical_type') and
-            writers_schema.logical_type == constants.TIMESTAMP_MICROS):
+          writers_schema.logical_type == constants.TIMESTAMP_MICROS):
         encoder.write_timestamp_micros_long(datum)
       else:
         encoder.write_long(datum)
@@ -1164,7 +1229,8 @@ class DatumWriter(object):
     elif writers_schema.type == 'bytes':
       if (hasattr(writers_schema, 'logical_type') and
           writers_schema.logical_type == constants.DECIMAL):
-        encoder.write_decimal_bytes(datum, writers_schema.get_prop('scale'))
+        encoder.write_decimal_bytes(datum,
+                      writers_schema.get_prop('scale'))
       elif isinstance(datum, bytes):
         encoder.write_bytes(datum)
       else:
@@ -1195,35 +1261,36 @@ class DatumWriter(object):
 
   def write_fixed(self, writers_schema, datum, encoder):
     """
-    Fixed instances are encoded using the number of bytes declared
-    in the schema.
-    """
+  Fixed instances are encoded using the number of bytes declared
+  in the schema.
+  """
     encoder.write(datum)
 
   def write_enum(self, writers_schema, datum, encoder):
     """
-    An enum is encoded by a int, representing the zero-based position
-    of the symbol in the schema.
-    """
+  An enum is encoded by a int, representing the zero-based position
+  of the symbol in the schema.
+  """
     index_of_datum = writers_schema.symbols.index(datum)
     encoder.write_int(index_of_datum)
 
   def write_array(self, writers_schema, datum, encoder):
     """
-    Arrays are encoded as a series of blocks.
+  Arrays are encoded as a series of blocks.
 
-    Each block consists of a long count value,
-    followed by that many array items.
-    A block with count zero indicates the end of the array.
-    Each item is encoded per the array's item schema.
+  Each block consists of a long count value,
+  followed by that many array items.
+  A block with count zero indicates the end of the array.
+  Each item is encoded per the array's item schema.
 
-    If a block's count is negative,
-    then the count is followed immediately by a long block size,
-    indicating the number of bytes in the block.
-    The actual count in this case
-    is the absolute value of the count written.
-    """
+  If a block's count is negative,
+  then the count is followed immediately by a long block size,
+  indicating the number of bytes in the block.
+  The actual count in this case
+  is the absolute value of the count written.
+  """
     if len(datum) > 0:
+      print 'write_array ', datum, len(datum)
       encoder.write_long(len(datum))
       for item in datum:
         self.write_data(writers_schema.items, item, encoder)
@@ -1231,19 +1298,19 @@ class DatumWriter(object):
 
   def write_map(self, writers_schema, datum, encoder):
     """
-    Maps are encoded as a series of blocks.
+  Maps are encoded as a series of blocks.
 
-    Each block consists of a long count value,
-    followed by that many key/value pairs.
-    A block with count zero indicates the end of the map.
-    Each item is encoded per the map's value schema.
+  Each block consists of a long count value,
+  followed by that many key/value pairs.
+  A block with count zero indicates the end of the map.
+  Each item is encoded per the map's value schema.
 
-    If a block's count is negative,
-    then the count is followed immediately by a long block size,
-    indicating the number of bytes in the block.
-    The actual count in this case
-    is the absolute value of the count written.
-    """
+  If a block's count is negative,
+  then the count is followed immediately by a long block size,
+  indicating the number of bytes in the block.
+  The actual count in this case
+  is the absolute value of the count written.
+  """
     if len(datum) > 0:
       encoder.write_long(len(datum))
       for key, val in datum.items():
@@ -1253,10 +1320,10 @@ class DatumWriter(object):
 
   def write_union(self, writers_schema, datum, encoder):
     """
-    A union is encoded by first writing a long value indicating
-    the zero-based position within the union of the schema of its value.
-    The value is then encoded per the indicated schema within the union.
-    """
+  A union is encoded by first writing a long value indicating
+  the zero-based position within the union of the schema of its value.
+  The value is then encoded per the indicated schema within the union.
+  """
     # resolve union
     index_of_schema = -1
     for i, candidate_schema in enumerate(writers_schema.schemas):
@@ -1266,14 +1333,15 @@ class DatumWriter(object):
 
     # write data
     encoder.write_long(index_of_schema)
-    self.write_data(writers_schema.schemas[index_of_schema], datum, encoder)
+    self.write_data(writers_schema.schemas[index_of_schema], datum,
+            encoder)
 
   def write_record(self, writers_schema, datum, encoder):
     """
-    A record is encoded by encoding the values of its fields
-    in the order that they are declared. In other words, a record
-    is encoded as just the concatenation of the encodings of its fields.
-    Field values are encoded per their schema.
-    """
+  A record is encoded by encoding the values of its fields
+  in the order that they are declared. In other words, a record
+  is encoded as just the concatenation of the encodings of its fields.
+  Field values are encoded per their schema.
+  """
     for field in writers_schema.fields:
       self.write_data(field.type, datum.get(field.name), encoder)
